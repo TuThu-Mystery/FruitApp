@@ -791,10 +791,12 @@ fun UserCartTab(viewModel: ShopViewModel) {
                     Text("Tuyệt Vời", color = Color.White)
                 }
             },
-            title = { Text("Thanh Toán Thành Công 🎉", fontWeight = FontWeight.Bold) },
-            text = { Text("Đơn hàng của bạn đã được tiếp nhận. Số lượng hàng tồn kho đã được cập nhật thành công!") },
+            title = { Text("Thanh Toán Thành Công 🎉", fontWeight = FontWeight.Bold, color = Color.Black) },
+            text = { Text("Đơn hàng của bạn đã được tiếp nhận. Số lượng hàng tồn kho đã được cập nhật thành công!", color = Color.Black) },
             shape = RoundedCornerShape(28.dp),
-            containerColor = PolishSurface
+            containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black
         )
     }
 
@@ -810,10 +812,12 @@ fun UserCartTab(viewModel: ShopViewModel) {
                     Text("Đã Hiểu", color = Color.White)
                 }
             },
-            title = { Text("Hủy Đơn Hàng - Hết Hàng ⚠️", fontWeight = FontWeight.Bold) },
-            text = { Text(showErrorDialog ?: "") },
+            title = { Text("Hủy Đơn Hàng - Hết Hàng ⚠️", fontWeight = FontWeight.Bold, color = Color.Black) },
+            text = { Text(showErrorDialog ?: "", color = Color.Black) },
             shape = RoundedCornerShape(28.dp),
-            containerColor = PolishSurface
+            containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black
         )
     }
 
@@ -920,6 +924,41 @@ fun UserCartTab(viewModel: ShopViewModel) {
 
 @Composable
 fun CartItemRow(item: CartItemUiModel, viewModel: ShopViewModel) {
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var quantityText by remember(item.cartItem.quantity) { mutableStateOf(item.cartItem.quantity.toString()) }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeFromCart(item.cartItem)
+                        showDeleteConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PolishAlertRed),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("Xóa", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false
+                    quantityText = item.cartItem.quantity.toString()
+                }) {
+                    Text("Hủy", color = PolishTextSecondary)
+                }
+            },
+            title = { Text("Xác nhận xóa", fontWeight = FontWeight.Bold, color = Color.Black) },
+            text = { Text("Bạn muốn xóa sản phẩm khỏi giỏ hàng ko?", color = Color.Black) },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PolishSurface),
@@ -966,7 +1005,13 @@ fun CartItemRow(item: CartItemUiModel, viewModel: ShopViewModel) {
                         .size(32.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(SoftCream)
-                        .clickable { viewModel.updateCartQuantity(item.cartItem, -1) },
+                        .clickable {
+                            if (item.cartItem.quantity - 1 <= 0) {
+                                showDeleteConfirmDialog = true
+                            } else {
+                                viewModel.updateCartQuantity(item.cartItem, -1)
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -977,13 +1022,32 @@ fun CartItemRow(item: CartItemUiModel, viewModel: ShopViewModel) {
                     )
                 }
 
-                Text(
-                    text = item.cartItem.quantity.toString(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = PolishOnSurface,
-                    modifier = Modifier.widthIn(min = 24.dp),
-                    textAlign = TextAlign.Center
+                androidx.compose.foundation.text.BasicTextField(
+                    value = quantityText,
+                    onValueChange = { newValue ->
+                        quantityText = newValue
+                        val newQty = newValue.toIntOrNull()
+                        if (newQty != null) {
+                            if (newQty <= 0) {
+                                showDeleteConfirmDialog = true
+                            } else if (newQty > item.maxQuantity) {
+                                viewModel.setCartQuantity(item.cartItem, newQty) // This will trigger the feedback
+                                quantityText = item.maxQuantity.toString() // Reset to max visually
+                            } else {
+                                viewModel.setCartQuantity(item.cartItem, newQty)
+                            }
+                        }
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center
+                    ),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.width(36.dp)
                 )
 
                 // Polished rounded quantity increase button
@@ -1006,7 +1070,7 @@ fun CartItemRow(item: CartItemUiModel, viewModel: ShopViewModel) {
                 Spacer(modifier = Modifier.width(4.dp))
 
                 IconButton(
-                    onClick = { viewModel.removeFromCart(item.cartItem) },
+                    onClick = { showDeleteConfirmDialog = true },
                     colors = IconButtonDefaults.iconButtonColors(contentColor = PolishAlertRed),
                     modifier = Modifier.size(36.dp)
                 ) {
@@ -1406,9 +1470,11 @@ fun AdminUserSection(viewModel: ShopViewModel) {
                     Text("Hủy", color = PolishTextSecondary)
                 }
             },
-            title = { Text(if (editingUser == null) "Thêm User Mới" else "Chỉnh Sửa User", fontWeight = FontWeight.Bold, color = PolishOnSurface) },
+            title = { Text(if (editingUser == null) "Thêm User Mới" else "Chỉnh Sửa User", fontWeight = FontWeight.Bold, color = Color.Black) },
             shape = RoundedCornerShape(28.dp),
             containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black,
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -1619,9 +1685,11 @@ fun AdminCategorySection(viewModel: ShopViewModel) {
                     Text("Hủy", color = PolishTextSecondary)
                 }
             },
-            title = { Text(if (editingCategory == null) "Thêm Danh Mục Mới" else "Sửa Danh Mục", fontWeight = FontWeight.Bold, color = PolishOnSurface) },
+            title = { Text(if (editingCategory == null) "Thêm Danh Mục Mới" else "Sửa Danh Mục", fontWeight = FontWeight.Bold, color = Color.Black) },
             shape = RoundedCornerShape(28.dp),
             containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black,
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -1803,9 +1871,11 @@ fun AdminFruitSection(viewModel: ShopViewModel) {
                     Text("Hủy", color = PolishTextSecondary)
                 }
             },
-            title = { Text(if (editingFruit == null) "Thêm Trái Cây Mới" else "Sửa Trái Cây", fontWeight = FontWeight.Bold, color = PolishOnSurface) },
+            title = { Text(if (editingFruit == null) "Thêm Trái Cây Mới" else "Sửa Trái Cây", fontWeight = FontWeight.Bold, color = Color.Black) },
             shape = RoundedCornerShape(28.dp),
             containerColor = PolishSurface,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Black,
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(

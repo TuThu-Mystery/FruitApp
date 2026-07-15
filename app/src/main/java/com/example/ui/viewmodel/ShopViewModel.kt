@@ -192,6 +192,21 @@ class ShopViewModel(private val repository: ShopRepository) : ViewModel() {
         }
     }
 
+    fun setCartQuantity(cartItem: CartItemEntity, newQty: Int) {
+        viewModelScope.launch {
+            val fruit = repository.getFruitById(cartItem.fruitId) ?: return@launch
+            if (newQty <= 0) {
+                repository.deleteCartItem(cartItem)
+            } else {
+                if (newQty > fruit.quantity) {
+                    showFeedback("Sản phẩm '${fruit.name}' trong kho chỉ còn ${fruit.quantity} mặt hàng!")
+                    return@launch
+                }
+                repository.updateCartItem(cartItem.copy(quantity = newQty))
+            }
+        }
+    }
+
     fun removeFromCart(cartItem: CartItemEntity) {
         viewModelScope.launch {
             repository.deleteCartItem(cartItem)
